@@ -9,9 +9,9 @@ import resnet_v1_eembc
 import yaml
 import csv
 import setGPU
-
 #from keras_flops import get_flops #(different flop calculation)
 import kerop
+from tensorflow.keras.datasets import cifar10
 
 def get_lr_schedule_func(initial_lr, lr_decay):
 
@@ -19,8 +19,6 @@ def get_lr_schedule_func(initial_lr, lr_decay):
         return initial_lr * (lr_decay ** epoch)
 
     return lr_schedule_func
-
-from tensorflow.keras.datasets import cifar10
 
 def yaml_load(config):
     with open(config) as stream:
@@ -46,6 +44,13 @@ def main(args):
     model_name = config['model']['name']
     loss = config['fit']['compile']['loss']
     model_file_path = os.path.join(save_dir, 'model_best.h5')
+
+    # quantization parameters
+    if 'quantized' in model_name:
+        logit_total_bits = config["quantization"]["logit_total_bits"]
+        logit_int_bits = config["quantization"]["logit_int_bits"]
+        activation_total_bits = config["quantization"]["activation_total_bits"]
+        activation_int_bits = config["quantization"]["activation_int_bits"]
 
     # optimizer
     optimizer = getattr(tf.keras.optimizers,config['fit']['compile']['optimizer'])
@@ -79,6 +84,13 @@ def main(args):
               'l1p': l1p,
               'l2p': l2p}
 
+    # pass quantization params
+    if 'quantized' in model_name:
+        kwargs["logit_total_bits"] = logit_total_bits
+        kwargs["logit_int_bits"] = logit_int_bits
+        kwargs["activation_total_bits"] = activation_total_bits
+        kwargs["activation_int_bits"] = activation_int_bits
+
     # define model
     model = getattr(resnet_v1_eembc,model_name)(**kwargs)
 
@@ -89,7 +101,6 @@ def main(args):
     print(model.summary())
     print('#################') 
     
-
     # analyze FLOPs (see https://github.com/kentaroy47/keras-Opcounter)
     layer_name, layer_flops, inshape, weights = kerop.profile(model)
 
@@ -98,7 +109,15 @@ def main(args):
     for name, flop, shape in zip(layer_name, layer_flops, inshape):
         print("layer:", name, shape, " MFLOPs:", flop/1e6)
         total_flop += flop
-    print("Total FLOPs: {} GFLOPs".format(total_flop/1e9))
+    print("Total FLOPs: {} MFLOPs".format(total_flop/1e6))
+
+    tf.keras.utils.plot_model(model,
+                              to_file="model.png",
+                              show_shapes=True,
+                              show_dtype=False,
+                              show_layer_names=False,
+                              rankdir="TB",
+                              expand_nested=False)
 
     # Alternative FLOPs calculation (see https://github.com/tokusumi/keras-flops), ~same answer
     #total_flop = get_flops(model, batch_size=1)
