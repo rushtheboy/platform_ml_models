@@ -58,7 +58,7 @@ def main(args):
                'val_acc': [], 'flops': []}
 
     import kerop
-    num = 100
+    num = 20 #100
     for trial, model, hp in zip(tuner.oracle.get_best_trials(num_trials=num), 
                                 tuner.get_best_models(num_models=num), 
                                 tuner.get_best_hyperparameters(num_trials=num)):

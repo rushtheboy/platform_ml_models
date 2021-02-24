@@ -56,13 +56,13 @@ def main(args):
     tuner = BayesianOptimization(
         build_model,
         objective='val_accuracy',
-        max_trials=100,
+        max_trials=10,  #100,  
         project_name='bo_resnet_v1_eembc_10epoch_100maxtrials_lrdecay',
         overwrite=True)
 
     datagen.fit(X_train)
 
-    print(tuner.search_space_summary())
+    print("Here is the summary: \n", tuner.search_space_summary())
 
     from tensorflow.keras.callbacks import LearningRateScheduler
     lr_schedule_func = get_lr_schedule_func(0.001, 0.99)
